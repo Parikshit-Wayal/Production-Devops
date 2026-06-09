@@ -1,0 +1,236 @@
+# ============================================================
+# Docker Compose for E-Commerce Microservices Application
+#
+# Purpose:
+# Orchestrates all containers required for the application.
+#
+# Components:
+# - Nginx API Gateway
+# - MongoDB Database
+# - Auth Service
+# - Products Service
+# - Cart Service
+# - Orders Service
+# - React Frontend
+#
+# Docker Compose automatically creates:
+# - Shared Network
+# - Service Discovery (DNS)
+# - Volume Management
+#
+# Example:
+# auth-service can communicate with database using:
+#
+# mongodb://database:27017/shopdb
+#
+# without needing IP addresses.
+# ============================================================
+
+services:
+
+  # ==========================================================
+  # API GATEWAY
+  # ==========================================================
+  #
+  # Single entry point for all user requests.
+  #
+  # Responsibilities:
+  # - Reverse Proxy
+  # - Request Routing
+  # - Security Layer
+  # - Load Balancing (future)
+  #
+  # Example:
+  # /api/auth     -> auth-service
+  # /api/products -> products-service
+  # /api/cart     -> cart-service
+  # /api/orders   -> orders-service
+  #
+  gateway:
+    image: nginx:alpine
+    container_name: shop-gateway
+
+    # Expose only gateway to users
+    ports:
+      - "80:80"
+
+    # Custom Nginx configuration
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+
+    # Ensure dependent services start first
+    depends_on:
+      - frontend
+      - auth-service
+      - products-service
+      - cart-service
+      - orders-service
+
+
+  # ==========================================================
+  # DATABASE
+  # ==========================================================
+  #
+  # MongoDB database used by all services.
+  #
+  # Stores:
+  # - Users
+  # - Products
+  # - Orders
+  # - Cart Data
+  #
+  database:
+    image: mongo:latest
+    container_name: shop-db
+
+    # Development access
+    #
+    # Production:
+    # Usually NOT exposed publicly
+    ports:
+      - "27017:27017"
+
+    # Persistent storage
+    # Data survives container restart
+    volumes:
+      - mongo-data:/data/db
+
+
+  # ==========================================================
+  # AUTH SERVICE
+  # ==========================================================
+  #
+  # Responsibilities:
+  # - User Registration
+  # - User Login
+  # - JWT Authentication
+  # - Authorization
+  #
+  auth-service:
+    build: ./auth-service
+    container_name: shop-auth
+
+    # Development only
+    # Production should be internal
+    ports:
+      - "5001:5001"
+
+    environment:
+      - MONGO_URI=mongodb://database:27017/shopdb
+      - JWT_SECRET=your_local_secret_key
+
+    depends_on:
+      - database
+
+
+  # ==========================================================
+  # PRODUCT SERVICE
+  # ==========================================================
+  #
+  # Responsibilities:
+  # - Product CRUD
+  # - Product Listing
+  # - Inventory Management
+  #
+  products-service:
+    build: ./products-service
+    container_name: shop-products
+
+    ports:
+      - "5002:5002"
+
+    environment:
+      - MONGO_URI=mongodb://database:27017/shopdb
+
+    depends_on:
+      - database
+
+
+  # ==========================================================
+  # CART SERVICE
+  # ==========================================================
+  #
+  # Responsibilities:
+  # - Add To Cart
+  # - Remove Item
+  # - Update Quantity
+  # - View Cart
+  #
+  cart-service:
+    build: ./cart-service
+    container_name: shop-cart
+
+    ports:
+      - "5003:5003"
+
+    environment:
+      - MONGO_URI=mongodb://database:27017/shopdb
+
+    depends_on:
+      - database
+
+
+  # ==========================================================
+  # ORDER SERVICE
+  # ==========================================================
+  #
+  # Responsibilities:
+  # - Create Orders
+  # - Order Tracking
+  # - Order History
+  # - Payment Integration
+  #
+  orders-service:
+    build: ./orders-service
+    container_name: shop-orders
+
+    ports:
+      - "5004:5004"
+
+    environment:
+      - MONGO_URI=mongodb://database:27017/shopdb
+
+    depends_on:
+      - database
+
+
+  # ==========================================================
+  # FRONTEND
+  # ==========================================================
+  #
+  # React + Vite frontend.
+  #
+  # User accesses frontend through browser.
+  # Frontend communicates with backend APIs.
+  #
+  frontend:
+    build:
+      context: ./minimal-shop-frontend
+      dockerfile: Dockerfile
+
+    container_name: shop-frontend
+
+    # Host Port -> Container Port
+    ports:
+      - "5173:80"
+
+    depends_on:
+      - auth-service
+      - products-service
+      - cart-service
+      - orders-service
+
+
+# ============================================================
+# PERSISTENT VOLUMES
+# ============================================================
+#
+# Stores MongoDB data outside container.
+#
+# Benefits:
+# - Data persistence
+# - Survives container recreation
+# - Easy backup and recovery
+#
+volumes:
+  mongo-data:

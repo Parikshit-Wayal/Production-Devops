@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const Order = require('../models/Order');
+const Order = require('./Order');
 const Cart = require('../models/Cart');
-const { protect } = require('../middleware/authMiddleware');
+const { protect } = require('./middleware/authMiddleware');
 
 // 1. PLACE AN ORDER (Checkout logic)
 router.post('/place', protect, async (req, res) => {

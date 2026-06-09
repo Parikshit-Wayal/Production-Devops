@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const Product = require('../models/Product');
-const { protect, adminOnly } = require('../middleware/authMiddleware');
+const Product = require('./Product');
+const { protect, adminOnly } = require('./middleware/authMiddleware');
 
 // 1. VIEW ALL PRODUCTS (Public)
 router.get('/', async (req, res) => {
